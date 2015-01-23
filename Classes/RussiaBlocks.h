@@ -12,14 +12,20 @@ class ScreenBlock: public Sprite {
   protected:
 };
 
+#define DEFAULT_BLOCK_COLOR Color3B(0xBF,0x8A,0x30)
 class ScreenImpl: public ScreenBlock {
   public:
-
     //ScreenImpl(int w, int h):width(w),height(h) {}
     //720x0.8 = 32x18, 1080x0.8 = 32x27, so block is 32x32
     static inline ScreenImpl* createWithArgs(
         Point &playOrig, Size &playSize, int width=18, int height=27); 
     void colorClickedBlock(Vec2 &loc);
+    void setToInitialColor() {
+      log("clearing screen");
+      for(auto i : blockArr_) {
+        i->setColor(DEFAULT_BLOCK_COLOR);
+      }
+    }
   protected:
     ScreenImpl(Point &playOrig, Size &playSize, int width=18, int height=27):
       playOrig_(playOrig), playSize_(playSize), width_(width), height_(height) {
@@ -60,7 +66,12 @@ class Runner: public Ref {
       TOGENSHAP = 1, //to generate a new shap.
       DROPPING = 2, //shap is dropping.
     };
-    Runner(ScreenImpl* screenArr):screenArr_(screenArr), state_(TOSTART) {}
+    Runner(ScreenImpl* screenArr):screenArr_(screenArr), state_(TOSTART) {
+      screenArr_->retain();
+    }
+    ~Runner() { 
+      if(screenArr_) screenArr_->release(); 
+    }
     static Runner* createWithArgs(ScreenImpl* screenArr) {
       Runner *runner = new Runner(screenArr);
       if(runner && runner->init()) {
@@ -71,9 +82,18 @@ class Runner: public Ref {
       return nullptr;
     }
 
-    void run(float);
+    void run();
+    void runClkForScheduler(float tmp);
+    void clearScreen() const {
+      screenArr_->setToInitialColor();
+    }
   protected:
     bool init() { return true;}
+    void moveLeft();
+    void moveRight();
+    void drop();
+    void dropToBottom();
+
     ScreenImpl* screenArr_;
     int state_;
 };
@@ -86,14 +106,16 @@ class Player {
       return player;
     }
 
-    ~Player() { if(runner_) runner_->release(); }
+    ~Player() { 
+      if(runner_) runner_->release(); 
+    }
     Scene* createStartScene();
     void play(Scene* scene, ScreenImpl* screenArr);
-    const Runner* getRunner() const { return runner_; };
+    Runner* getRunner() const { return runner_; };
   private:
     Player():runner_(nullptr) {}
     Player(Player &Player) {}
-    bool operator =(Player &Player) {}
+    bool operator =(Player &Player) { return true; }
     Runner *runner_;
 
 };

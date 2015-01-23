@@ -29,7 +29,7 @@ bool ScreenImpl::init() {
       block->setContentSize(blockSize_);
       block->setAnchorPoint(Point::ZERO);
       block->setTextureRect(Rect(1, 1, blockSize_.width-1, blockSize_.height-1));
-      block->setColor(Color3B(0xBF,0x8A,0x30));
+      block->setColor(DEFAULT_BLOCK_COLOR);
       blockArr_.push_back(block);
     }
   }
@@ -48,14 +48,16 @@ void Runner::moveLeft() {
 }
 void Runner::moveRight() {
 }
-void Runner::Drop() {
+void Runner::drop() {
 }
-void RUnner::DropToBottom() {
+void Runner::dropToBottom() {
 }
+//void Runner::genShap() {
+//}
 
 //need to lock before modify color of block in shift left, right and dropToBottom func.
 //need a class to save shape??
-void Runner::run(float tmp) { 
+void Runner::run() { 
   log("run");
   if(state_ == DROPPING) {
     log("state dropping.");
@@ -63,20 +65,29 @@ void Runner::run(float tmp) {
     //drop();
   } else if(state_ == TOGENSHAP) {
     log("state to gen shap.");
-    //genShap();
+//    genShap();
     state_ = DROPPING;
   } else if(state_ == TOSTART) {
     log("state to start.");
-    //screenArr_->clearScreen();
+    clearScreen();
     state_ = TOGENSHAP;
   } 
 }
 
+void Runner::runClkForScheduler(float tmp) {
+  Player::getInstance().getRunner()->run();
+}
+
 void Player::play(Scene* scene, ScreenImpl* screenArr) {
   runner_ = Runner::createWithArgs(screenArr);
+  runner_->retain();
+
   //there are many types of macro to select call func type.
-  //need deep analysis the schedule.
-  scene->schedule(schedule_selector(Runner::run), 0.5f);
+  //need deep analysis the schedule.  
+  //in call back func. If you want to visit data. need to reget instance.
+  //May be because of static_cast of the callBack function to Ref:: so it can't visit data??.
+  //also can't use lamada because the type is not std::function??
+  scene->schedule(schedule_selector(Runner::runClkForScheduler), 0.5f);
   //to unschedule it.
   //unschedule(schedule_selector(Runner::run))
 }
