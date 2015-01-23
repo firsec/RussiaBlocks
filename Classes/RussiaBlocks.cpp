@@ -43,6 +43,16 @@ bool ScreenImpl::init() {
   return true;
 }
 
+
+void Runner::moveLeft() {
+}
+void Runner::moveRight() {
+}
+void Runner::Drop() {
+}
+void RUnner::DropToBottom() {
+}
+
 //need to lock before modify color of block in shift left, right and dropToBottom func.
 //need a class to save shape??
 void Runner::run(float tmp) { 
