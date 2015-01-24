@@ -1,13 +1,24 @@
 #include "RussiaBlocks.h"
 USING_NS_CC;
 
+void ScreenImpl::colorBlock(Vec2 &pos, Color3B color) {
+  log("%g %g", pos.x, pos.y);
+  auto block = getBlock(pos.x, pos.y);
+  block->setColor(color);
+}
+
+void ScreenImpl::colorBlock(Vec2 &&pos, Color3B color) {
+  log("---%g %g", pos.x, pos.y);
+  auto block = getBlock(pos.x, pos.y);
+  block->setColor(color);
+}
+
 void ScreenImpl::colorClickedBlock(Vec2 &loc) {
   if(loc.x > playOrig_.x + playSize_.width || loc.y < playOrig_.y) { 
     return;
   }
   Vec2 pos = getBlockPosByPixLoc(loc);
-  auto block = getBlock(pos.x, pos.y);
-  block->setColor(Color3B::BLACK);
+  colorBlock(pos);
 }
 
 inline ScreenImpl* ScreenImpl::createWithArgs(
@@ -31,6 +42,7 @@ bool ScreenImpl::init() {
       block->setTextureRect(Rect(1, 1, blockSize_.width-1, blockSize_.height-1));
       block->setColor(DEFAULT_BLOCK_COLOR);
       blockArr_.push_back(block);
+      block->retain();
     }
   }
   for(int j=0; j<height_; ++j) {
@@ -43,17 +55,112 @@ bool ScreenImpl::init() {
   return true;
 }
 
+bool ScreenImpl::dropShap(bool isToBottom) {
+  if(isToBottom) {
+    //checkStuck()
+    return true;
+  } else {
+    log("dropShap");
+    //checkStuck()
+    //addShapToDropedArr();
+    auto p = curShap_->blocks_;
+    int minY = height_;
+    for(int i = 0; i < 4; ++i) {
+      if(p[i].y < minY)
+        minY = p[i].y;
+    }
+    if(minY > 0) {
+      curShap_->centor_.y -= 1;
+      for(int i = 0; i < 4; ++i) {
+        colorBlock(Vec2(p[i].x, p[i].y - 1));
+        colorBlock(p[i], DEFAULT_BLOCK_COLOR);
+        p[i].y -= 1;
+      }
+    }
+    return true;
+  }
+}
+
+void ScreenImpl::moveShapRight() {
+  log("moveShapRight");
+  auto p = curShap_->blocks_;
+  //checkStuck()
+  if(p[3].x < width_ - 1) {
+    curShap_->centor_.x += 1;
+    for(int i = 3; i >= 0; --i) {
+      colorBlock(Vec2(p[i].x+1, p[i].y));
+      colorBlock(p[i], DEFAULT_BLOCK_COLOR);
+      p[i].x += 1;
+    }
+  }
+}
+
+void ScreenImpl::moveShapLeft() {
+  log("moveSLeft");
+  auto p = curShap_->blocks_;
+  //checkStuck()
+  if(p[0].x > 0) {
+    curShap_->centor_.x -= 1;
+    for(int i = 0; i < 4; ++i) {
+      colorBlock(Vec2(p[i].x-1, p[i].y));
+      colorBlock(p[i], DEFAULT_BLOCK_COLOR);
+      p[i].x -= 1;
+    }
+  }
+}
+
+//shap types: 0 is T shap.
+void ScreenImpl::genShap() {
+  srandom(time(0));
+  curShap_->rotation_ = rand()%4;
+  int shap = rand()%SHAPNR;
+  Vec2 midTopPos = getMidTopPos();
+  //here can be changed to vector<std::function<>>
+  //shap == TSHAP
+  if(1) {
+    curShap_->blocks_[0] = midTopPos;
+    colorBlock(midTopPos);
+   
+    curShap_->centor_ = Vec2(midTopPos.x, midTopPos.y - 1);
+    curShap_->blocks_[1] = Vec2(midTopPos.x, midTopPos.y - 1);
+    colorBlock(Vec2(midTopPos.x, midTopPos.y - 1));
+   
+    curShap_->blocks_[2] = Vec2(midTopPos.x - 1, midTopPos.y - 1);
+    colorBlock(Vec2(midTopPos.x - 1, midTopPos.y - 1));
+   
+    curShap_->blocks_[3] = Vec2(midTopPos.x + 1, midTopPos.y - 1);
+    colorBlock(Vec2(midTopPos.x + 1, midTopPos.y - 1));
+  } else {
+
+  }
+  std::sort(curShap_->blocks_, curShap_->blocks_ + 4);
+  //fitRotation();
+}
 
 void Runner::moveLeft() {
+  if(state_ == DROPPING) {
+    screenArr_->moveShapLeft();
+  }
+  log("move left");
 }
 void Runner::moveRight() {
+  log("move right");
+  if(state_ == DROPPING) {
+    screenArr_->moveShapRight();
+  }
 }
 void Runner::drop() {
+  if(state_ == DROPPING) {
+    if(!screenArr_->dropShap(false/*one step*/)) {
+      state_ = TOGENSHAP;
+    }
+  }
 }
 void Runner::dropToBottom() {
 }
-//void Runner::genShap() {
-//}
+void Runner::genShap() {
+  screenArr_->genShap();
+}
 
 //need to lock before modify color of block in shift left, right and dropToBottom func.
 //need a class to save shape??
@@ -61,11 +168,10 @@ void Runner::run() {
   log("run");
   if(state_ == DROPPING) {
     log("state dropping.");
-    //checkStuck();
-    //drop();
+    drop();
   } else if(state_ == TOGENSHAP) {
     log("state to gen shap.");
-//    genShap();
+    genShap();
     state_ = DROPPING;
   } else if(state_ == TOSTART) {
     log("state to start.");
@@ -117,13 +223,21 @@ Scene* Player::createStartScene() {
   //create screen block arr.
   auto screenArr = ScreenImpl::createWithArgs(playOrig, playSize);
   scene->addChild(screenArr, -3);
-  
+
+  //create touch listener.
   auto listener = EventListenerTouchOneByOne::create();
-  listener->onTouchBegan = [scene, origin, screenArr](Touch *t, Event *e) {
+  listener->onTouchBegan = [this, scene, origin, screenArr](Touch *t, Event *e) {
     Vec2 loc = t->getLocation() - origin;
+    this->saveOnTouchBeginPoint(t->getLocation());
     log("orig %g %g", origin.x, origin.y);
     log("click %g %g",loc.x, loc.y);
     screenArr->colorClickedBlock(loc);
+    //if want to process move and other event, need to return true.
+    return true;
+  };
+  //call any function must ensure the pointer is initialized.
+  listener->onTouchEnded = [this](Touch *t, Event *e) {
+    this->processOnTouchEnd(t->getLocation());
     return false;
   };
   Director::getInstance()->getEventDispatcher()->addEventListenerWithSceneGraphPriority(listener,scene);
@@ -156,7 +270,7 @@ Scene* Player::createStartScene() {
   exitMenuItem->setPosition(gameMenuSize.width/2, exitMenuItem->getContentSize().height*3);
   menuNode->addChild(menu, 0);
   scene->addChild(menuNode, -4);
- // MessageBox("Hell","WW");
+  // MessageBox("Hell","WW");
 
   return scene;
 
