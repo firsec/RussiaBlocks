@@ -55,29 +55,61 @@ bool ScreenImpl::init() {
   return true;
 }
 
+bool ScreenImpl::isStuck(int checkWhichSide) {
+  for(auto &i : curShap_->blocks_) {
+    if(checkWhichSide == BOTTOM) {
+      if(i.y - 1 < 0 || getBlock(i.x, i.y - 1)->getTag() == FIXED) {
+        return true;
+      }
+    } else if(checkWhichSide == LEFT) {
+      if(i.x - 1 < 0 || getBlock(i.x - 1, i.y)->getTag() == FIXED) { 
+        return true;
+      }
+    } else {
+      //check right
+      if(i.x + 1 >= width_ || getBlock(i.x + 1, i.y)->getTag() == FIXED) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 bool ScreenImpl::dropShap(bool isToBottom) {
   if(isToBottom) {
     //checkStuck()
-    return true;
+    do {
+      if(!dropShap(false)) {
+        return false;
+      }
+    } while(1); 
   } else {
     log("dropShap");
-    //checkStuck()
-    //addShapToDropedArr();
-    auto p = curShap_->blocks_;
-    int minY = height_;
-    for(int i = 0; i < 4; ++i) {
-      if(p[i].y < minY)
-        minY = p[i].y;
-    }
-    if(minY > 0) {
-      curShap_->centor_.y -= 1;
-      for(int i = 0; i < 4; ++i) {
-        colorBlock(Vec2(p[i].x, p[i].y - 1));
-        colorBlock(p[i], DEFAULT_BLOCK_COLOR);
-        p[i].y -= 1;
+    //check stuck
+    if(isStuck(BOTTOM)) {
+      //fix curBlocks
+      for(auto &i: curShap_->blocks_) {
+        getBlock(i.x, i.y)->setTag(FIXED);
       }
+      return false;
+    } else {
+      //drop cur blocks
+//      int minY = height_;
+//      for(int i = 0; i < 4; ++i) {
+//        if(p[i].y < minY)
+//          minY = p[i].y;
+//      }
+      //if(minY > 0) {
+      auto p = curShap_->blocks_;
+      curShap_->centor_.y -= 1;
+        for(int i = 0; i < 4; ++i) {
+          colorBlock(Vec2(p[i].x, p[i].y - 1));
+          colorBlock(p[i], DEFAULT_BLOCK_COLOR);
+          p[i].y -= 1;
+        }
+      //}
+      return true;
     }
-    return true;
   }
 }
 
@@ -85,7 +117,7 @@ void ScreenImpl::moveShapRight() {
   log("moveShapRight");
   auto p = curShap_->blocks_;
   //checkStuck()
-  if(p[3].x < width_ - 1) {
+  if(!isStuck(RIGHT)) {
     curShap_->centor_.x += 1;
     for(int i = 3; i >= 0; --i) {
       colorBlock(Vec2(p[i].x+1, p[i].y));
@@ -99,7 +131,7 @@ void ScreenImpl::moveShapLeft() {
   log("moveSLeft");
   auto p = curShap_->blocks_;
   //checkStuck()
-  if(p[0].x > 0) {
+  if(!isStuck(LEFT)) {
     curShap_->centor_.x -= 1;
     for(int i = 0; i < 4; ++i) {
       colorBlock(Vec2(p[i].x-1, p[i].y));
@@ -133,6 +165,9 @@ void ScreenImpl::genShap() {
   } else {
 
   }
+  //ensure blocks_[0] is always the left block.
+  //and blocks_[3] is always the right blocks.
+  //less Nr is near bottom.
   std::sort(curShap_->blocks_, curShap_->blocks_ + 4);
   //fitRotation();
 }
@@ -156,8 +191,7 @@ void Runner::drop() {
     }
   }
 }
-void Runner::dropToBottom() {
-}
+
 void Runner::genShap() {
   screenArr_->genShap();
 }

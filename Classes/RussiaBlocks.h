@@ -3,10 +3,16 @@
 
 USING_NS_CC;
 
-
-
 class ScreenBlock: public Sprite {
   public:
+    enum {
+      FREE = 0,
+      FIXED = 1,
+    };
+    bool init() {
+      setTag(FREE);
+      return initWithTexture(nullptr, Rect::ZERO );
+    }
     CREATE_FUNC(ScreenBlock);
   protected:
 };
@@ -31,6 +37,7 @@ class ScreenImpl: public ScreenBlock {
       TOP = 1,
       LEFT = 2,
       RIGHT = 3,
+      BOTTOM = 4,
     };
     class Shap: public Ref {
       public:
@@ -52,10 +59,11 @@ class ScreenImpl: public ScreenBlock {
     void colorBlock(Vec2 &&loc, Color3B color = SELECTED_BLOCK_COLOR);
     void colorBlock(Vec2 &loc, Color3B color = SELECTED_BLOCK_COLOR);
     void colorClickedBlock(Vec2 &loc);
-    void setToInitialColor() {
+    void setToInitialColorAndClearTag() {
       log("clearing screen");
       for(auto i : blockArr_) {
         i->setColor(DEFAULT_BLOCK_COLOR);
+        i->setTag(FREE);
       }
     }
     void genShap();
@@ -100,6 +108,7 @@ class ScreenImpl: public ScreenBlock {
     Vec2 getMidTopPos() {
       return Vec2(width_/2, height_-1);
     }
+    bool isStuck(int);
     //colums and rows of blocks.
     int width_;
     int height_;
@@ -141,7 +150,7 @@ class Runner: public Ref {
     void run();
     void runClkForScheduler(float tmp);
     void clearScreen() const {
-      screenArr_->setToInitialColor();
+      screenArr_->setToInitialColorAndClearTag();
     }
     void moveLeft();
     void moveRight();
@@ -153,6 +162,8 @@ class Runner: public Ref {
         moveLeft();
       } else if(delta.x > 30){
         moveRight();
+      } else if(delta.y < -30) {
+        screenArr_->dropShap(true);
       }
     }
   protected:
