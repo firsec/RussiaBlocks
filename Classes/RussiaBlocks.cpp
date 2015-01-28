@@ -149,27 +149,136 @@ void ScreenImpl::genShap() {
   Vec2 midTopPos = getMidTopPos();
   //here can be changed to vector<std::function<>>
   //shap == TSHAP
-  if(1) {
+  if(shap == TSHAP) {// 0 
     curShap_->blocks_[0] = midTopPos;
-    colorBlock(midTopPos);
-   
-    curShap_->centor_ = Vec2(midTopPos.x, midTopPos.y - 1);
     curShap_->blocks_[1] = Vec2(midTopPos.x, midTopPos.y - 1);
-    colorBlock(Vec2(midTopPos.x, midTopPos.y - 1));
-   
     curShap_->blocks_[2] = Vec2(midTopPos.x - 1, midTopPos.y - 1);
-    colorBlock(Vec2(midTopPos.x - 1, midTopPos.y - 1));
-   
     curShap_->blocks_[3] = Vec2(midTopPos.x + 1, midTopPos.y - 1);
-    colorBlock(Vec2(midTopPos.x + 1, midTopPos.y - 1));
-  } else {
-
+    curShap_->centor_ = curShap_->blocks_[1];
+  } else if(shap == LSHAPL) { // 1
+    curShap_->blocks_[0] = midTopPos;
+    curShap_->blocks_[1] = Vec2(midTopPos.x, midTopPos.y - 1);
+    curShap_->blocks_[2] = Vec2(midTopPos.x, midTopPos.y - 2);
+    curShap_->blocks_[3] = Vec2(midTopPos.x - 1, midTopPos.y - 2);
+    curShap_->centor_ = curShap_->blocks_[1];
+  } else if(shap == LSHAPR) { // 2
+    curShap_->blocks_[0] = midTopPos;
+    curShap_->blocks_[1] = Vec2(midTopPos.x, midTopPos.y - 1);
+    curShap_->blocks_[2] = Vec2(midTopPos.x, midTopPos.y - 2);
+    curShap_->blocks_[3] = Vec2(midTopPos.x + 1, midTopPos.y - 2);
+    curShap_->centor_ = curShap_->blocks_[1];
+  } else if(shap == ZSHAPL) { // 3
+    curShap_->blocks_[0] = midTopPos;
+    curShap_->blocks_[1] = Vec2(midTopPos.x - 1, midTopPos.y);
+    curShap_->blocks_[2] = Vec2(midTopPos.x, midTopPos.y - 1);
+    curShap_->blocks_[3] = Vec2(midTopPos.x + 1, midTopPos.y - 1);
+    curShap_->centor_ = curShap_->blocks_[0];
+  } else if(shap == ZSHAPR) { // 4
+    curShap_->blocks_[0] = midTopPos;
+    curShap_->blocks_[1] = Vec2(midTopPos.x + 1, midTopPos.y);
+    curShap_->blocks_[2] = Vec2(midTopPos.x, midTopPos.y - 1);
+    curShap_->blocks_[3] = Vec2(midTopPos.x - 1, midTopPos.y - 1);
+    curShap_->centor_ = curShap_->blocks_[0];
+  } else if(shap == ISHAP) { // 5
+    curShap_->blocks_[0] = midTopPos;
+    curShap_->blocks_[1] = Vec2(midTopPos.x + 1, midTopPos.y);
+    curShap_->blocks_[2] = Vec2(midTopPos.x - 1, midTopPos.y);
+    curShap_->blocks_[3] = Vec2(midTopPos.x - 2, midTopPos.y);
+    curShap_->centor_ = curShap_->blocks_[0];
+  } else { // ISHAP
+    curShap_->blocks_[0] = midTopPos;
+    curShap_->blocks_[1] = Vec2(midTopPos.x + 1, midTopPos.y);
+    curShap_->blocks_[2] = Vec2(midTopPos.x - 1, midTopPos.y);
+    curShap_->blocks_[3] = Vec2(midTopPos.x - 2, midTopPos.y);
+    curShap_->centor_ = curShap_->blocks_[0];
+  }
+  for(auto &i : curShap_->blocks_) {
+    colorBlock(i);
   }
   //ensure blocks_[0] is always the left block.
   //and blocks_[3] is always the right blocks.
   //less Nr is near bottom.
   std::sort(curShap_->blocks_, curShap_->blocks_ + 4);
   //fitRotation();
+}
+bool ScreenImpl::isLegal(Vec2 &&point) {
+  if(point.x < 0 || point.x >= width_ 
+      || point.y < 0 || point.y >= height_ 
+      || getBlock(point.x, point.y)->getTag() == FIXED) {
+    return false;
+  }
+  return true;
+}
+bool ScreenImpl::isLegal(Vec2 &point) {
+  if(point.x < 0 || point.x >= width_ 
+      || point.y < 0 || point.y >= height_ 
+      || getBlock(point.x, point.y)->getTag() == FIXED) {
+    return false;
+  }
+  return true;
+}
+
+void ScreenImpl::rotateShap() {
+  //clear old color and rotate shap.
+  auto &c = curShap_->centor_;
+  for(auto &i : curShap_->blocks_) {
+    if(i != c) {
+      //rotate 90 clockwise
+      Vec2 newPoint(i.x - c.x, i.y - c.y);
+      if(!isLegal(Vec2(c.x + newPoint.y, c.y - newPoint.x))) {
+        return;
+      }
+    }
+  }
+  for(auto &i : curShap_->blocks_) {
+    getBlock(i.x, i.y)->setColor(DEFAULT_BLOCK_COLOR);
+    if(i != c) {
+      //rotate 90 clockwise
+      Vec2 newPoint(i.x - c.x, i.y - c.y); 
+      i.x = c.x + newPoint.y;
+      i.y = c.y - newPoint.x;
+    }
+  }
+  for(auto &i : curShap_->blocks_) {
+    log("x %g y %g", i.x, i.y);
+    getBlock(i.x, i.y)->setColor(SELECTED_BLOCK_COLOR);
+  }
+  std::sort(curShap_->blocks_, curShap_->blocks_ + 4);
+
+}
+
+void ScreenImpl::eraseFullLine() {
+  for(int j = 0; j < height_; ++j) {
+    bool isFullFixed = true;
+    bool isFullFree = true;
+    for(int i = 0; i < width_; ++i) {
+      if(getBlock(i, j)->getTag() == FREE) {
+        isFullFixed = false;
+      } else {
+        isFullFree = false;
+      }
+    }
+    if(isFullFixed) {
+      //drop all fixed blocks one step;
+      for(int jj = j; jj < height_ - 1; ++jj) {
+        for(int i = 0; i < width_; ++i) {
+          getBlock(i, jj)->setTag(getBlock(i, jj + 1)->getTag());
+          getBlock(i, jj)->setColor(getBlock(i, jj + 1)->getColor());
+        }
+      }
+      --j;
+    }
+    if(isFullFree) {
+      return;
+    }
+  }
+}
+
+void Runner::rotate() {
+  if(state_ == DROPPING) {
+    screenArr_->rotateShap();
+  }
+  log("rotate");
 }
 
 void Runner::moveLeft() {
@@ -187,6 +296,7 @@ void Runner::moveRight() {
 void Runner::drop() {
   if(state_ == DROPPING) {
     if(!screenArr_->dropShap(false/*one step*/)) {
+      screenArr_->eraseFullLine();
       state_ = TOGENSHAP;
     }
   }
@@ -255,24 +365,28 @@ Scene* Player::createStartScene() {
   playAreaNode->setPosition(origin);
   scene->addChild(playAreaNode, -5);
   //create screen block arr.
-  auto screenArr = ScreenImpl::createWithArgs(playOrig, playSize);
+  auto screenArr = ScreenImpl::createWithArgs(playOrig, playSize, 12, 24);
   scene->addChild(screenArr, -3);
 
   //create touch listener.
   auto listener = EventListenerTouchOneByOne::create();
   listener->onTouchBegan = [this, scene, origin, screenArr](Touch *t, Event *e) {
-    Vec2 loc = t->getLocation() - origin;
     this->saveOnTouchBeginPoint(t->getLocation());
-    log("orig %g %g", origin.x, origin.y);
-    log("click %g %g",loc.x, loc.y);
-    screenArr->colorClickedBlock(loc);
+    //screenArr->colorClickedBlock(loc);
     //if want to process move and other event, need to return true.
     return true;
+  };
+  listener->onTouchMoved = [this, origin](Touch *t, Event *e) {
+  //  this->followPoint(t->getLocation() - origin);
+  //  return false;
+    if(!this->processOnTouchMoved(t->getDelta(), false)) {
+      return true;
+    }
+    return false;
   };
   //call any function must ensure the pointer is initialized.
   listener->onTouchEnded = [this](Touch *t, Event *e) {
     this->processOnTouchEnd(t->getLocation());
-    return false;
   };
   Director::getInstance()->getEventDispatcher()->addEventListenerWithSceneGraphPriority(listener,scene);
 

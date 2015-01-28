@@ -21,7 +21,6 @@ class ScreenBlock: public Sprite {
 
 #define DEFAULT_BLOCK_COLOR Color3B(0xBF,0x8A,0x30)
 #define SELECTED_BLOCK_COLOR Color3B::BLACK
-#define SHAPNR 6
 class ScreenImpl: public ScreenBlock {
   public:
     enum {
@@ -31,6 +30,7 @@ class ScreenImpl: public ScreenBlock {
       ZSHAPL = 3,
       ZSHAPR = 4,
       ISHAP = 5,
+      SHAPNR = 6,
     };
     enum {
       CENTOR = 0,
@@ -66,9 +66,21 @@ class ScreenImpl: public ScreenBlock {
         i->setTag(FREE);
       }
     }
+    void moveLR2Point(Vec2 point) {
+      Vec2 pos = getBlockPosByPixLoc(point);      
+      while(!(curShap_->blocks_[3].x > pos.x && curShap_->blocks_[0].x < pos.x)) {
+        if(curShap_->blocks_[0].x > pos.x) {
+          moveShapLeft();
+        } else if(curShap_->blocks_[3].x < pos.x) {
+          moveShapRight();
+        }
+      }
+    }
+    void eraseFullLine();
     void genShap();
     void moveShapRight();
     void moveShapLeft();
+    void rotateShap();
     // return true means drop onestep successfully
     // false means shap connected to the top of other shap and added to the DropedBlocksArr_
     bool dropShap(bool isToBottom); 
@@ -77,7 +89,7 @@ class ScreenImpl: public ScreenBlock {
       playOrig_(playOrig), playSize_(playSize), width_(width), height_(height) {
         blockSize_.width = playSize_.width/width_;
         blockSize_.height = playSize_.height/height_;
-        CCASSERT(blockSize_.width == blockSize_.height, "Not width==height block!\n");
+        //CCASSERT(blockSize_.width == blockSize_.height, "Not width==height block!\n");
         curShap_ = Shap::create();
         curShap_->retain();
         nextShap_ = Shap::create();
@@ -109,10 +121,11 @@ class ScreenImpl: public ScreenBlock {
       return Vec2(width_/2, height_-1);
     }
     bool isStuck(int);
+    bool isLegal(Vec2 &&);
+    bool isLegal(Vec2 &);
     //colums and rows of blocks.
     int width_;
-    int height_;
-    //playing area size, unit px.
+    int height_; //playing area size, unit px.
     Size playSize_;
     Point playOrig_;
     Size blockSize_;
@@ -152,19 +165,30 @@ class Runner: public Ref {
     void clearScreen() const {
       screenArr_->setToInitialColorAndClearTag();
     }
+    void rotate();
     void moveLeft();
     void moveRight();
     void drop();
     void dropToBottom();
+    void shapFollowPoint(Vec2 point) {
+      screenArr_->moveLR2Point(point);
+    }
     //only move left or right by touch screen, set it and endtouch clear it.
-    void processMoved(Vec2 delta) {
-      if(delta.x < -30) {
+    bool processMoved(Vec2 delta, bool isConsiderRotate) {
+      if(delta.x < -40 && abs(delta.y) < 30) {
         moveLeft();
-      } else if(delta.x > 30){
+        return true;
+      } else if(delta.x > 40 && abs(delta.y) < 30){
         moveRight();
-      } else if(delta.y < -30) {
+        return true;
+      } else if(delta.y < -30 && abs(delta.x) < 30) {
         screenArr_->dropShap(true);
+        return true;
+      } else if(isConsiderRotate && abs(delta.x) < 1 && abs(delta.y) < 1) {
+        rotate();
+        return true;
       }
+      return false;
     }
   protected:
     bool init() { return true;}
@@ -190,11 +214,19 @@ class Player {
     Scene* createStartScene();
     void play(Scene* scene, ScreenImpl* screenArr);
     Runner* getRunner() const { return runner_; };
-    void processOnTouchMoved(Vec2 delta) { if(runner_) runner_-> processMoved(delta);}
+    bool processOnTouchMoved(Vec2 delta, bool isConsiderRotate) { 
+      if(runner_) {
+        return runner_-> processMoved(delta, isConsiderRotate);
+      }
+      return false;
+    }
     void saveOnTouchBeginPoint(Vec2 point) { onTouchBegin_ = point; }
     void processOnTouchEnd(Vec2 endPoint) {
-      if(runner_) processOnTouchMoved(endPoint-onTouchBegin_);
+      if(runner_) processOnTouchMoved(endPoint-onTouchBegin_, true);
     }
+    void followPoint(Vec2 point) {
+      if(runner_) runner_->shapFollowPoint(point);
+    } 
   private:
     Player():runner_(nullptr) {}
     Player(Player &Player) {}
