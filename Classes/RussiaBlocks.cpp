@@ -274,6 +274,18 @@ void ScreenImpl::eraseFullLine() {
   }
 }
 
+void ScreenImpl::shapFollowPointMovement(Vec2 oldPoint, Vec2 curPoint) {
+  int i = (curPoint.x - oldPoint.x)/blockSize_.width;
+  int n = abs(i);
+  for(int j = 0; j < n; ++j) {
+    if(i < 0) {
+      moveShapLeft();
+    } else {
+      moveShapRight();
+    }
+  }
+}
+
 void Runner::rotate() {
   if(state_ == DROPPING) {
     screenArr_->rotateShap();
@@ -337,7 +349,7 @@ void Player::play(Scene* scene, ScreenImpl* screenArr) {
   //in call back func. If you want to visit data. need to reget instance.
   //May be because of static_cast of the callBack function to Ref:: so it can't visit data??.
   //also can't use lamada because the type is not std::function??
-  scene->schedule(schedule_selector(Runner::runClkForScheduler), 0.5f);
+  scene->schedule(schedule_selector(Runner::runClkForScheduler), 0.2f);
   //to unschedule it.
   //unschedule(schedule_selector(Runner::run))
 }
@@ -377,16 +389,12 @@ Scene* Player::createStartScene() {
     return true;
   };
   listener->onTouchMoved = [this, origin](Touch *t, Event *e) {
-  //  this->followPoint(t->getLocation() - origin);
-  //  return false;
-    if(!this->processOnTouchMoved(t->getDelta(), false)) {
-      return true;
-    }
-    return false;
+    return processOnTouchMoved(t);
   };
   //call any function must ensure the pointer is initialized.
   listener->onTouchEnded = [this](Touch *t, Event *e) {
     this->processOnTouchEnd(t->getLocation());
+    return false;
   };
   Director::getInstance()->getEventDispatcher()->addEventListenerWithSceneGraphPriority(listener,scene);
 
