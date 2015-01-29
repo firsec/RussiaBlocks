@@ -1,2 +1,0 @@
-# RussiaBlocks
-Russia Blocks Game
