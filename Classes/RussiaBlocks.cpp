@@ -113,7 +113,7 @@ bool ScreenImpl::dropShap(bool isToBottom) {
   }
 }
 
-void ScreenImpl::moveShapRight() {
+bool ScreenImpl::moveShapRight() {
   log("moveShapRight");
   auto p = curShap_->blocks_;
   //checkStuck()
@@ -124,10 +124,12 @@ void ScreenImpl::moveShapRight() {
       colorBlock(p[i], DEFAULT_BLOCK_COLOR);
       p[i].x += 1;
     }
+    return true;
   }
+  return false;
 }
 
-void ScreenImpl::moveShapLeft() {
+bool ScreenImpl::moveShapLeft() {
   log("moveSLeft");
   auto p = curShap_->blocks_;
   //checkStuck()
@@ -138,7 +140,9 @@ void ScreenImpl::moveShapLeft() {
       colorBlock(p[i], DEFAULT_BLOCK_COLOR);
       p[i].x -= 1;
     }
+    return true;
   }
+  return false;
 }
 
 //shap types: 0 is T shap.
@@ -185,6 +189,12 @@ void ScreenImpl::genShap() {
     curShap_->blocks_[2] = Vec2(midTopPos.x - 1, midTopPos.y);
     curShap_->blocks_[3] = Vec2(midTopPos.x - 2, midTopPos.y);
     curShap_->centor_ = curShap_->blocks_[0];
+  } else if(shap == OSHAP) {
+    curShap_->blocks_[0] = midTopPos;
+    curShap_->blocks_[1] = Vec2(midTopPos.x + 1, midTopPos.y);
+    curShap_->blocks_[2] = Vec2(midTopPos.x, midTopPos.y - 1);
+    curShap_->blocks_[3] = Vec2(midTopPos.x + 1, midTopPos.y - 1);
+    curShap_->centor_ = midTopPos;
   } else { // ISHAP
     curShap_->blocks_[0] = midTopPos;
     curShap_->blocks_[1] = Vec2(midTopPos.x + 1, midTopPos.y);
@@ -221,6 +231,8 @@ bool ScreenImpl::isLegal(Vec2 &point) {
 void ScreenImpl::rotateShap() {
   //clear old color and rotate shap.
   auto &c = curShap_->centor_;
+  if(c.x < 0 || c.y < 0)
+    return;
   for(auto &i : curShap_->blocks_) {
     if(i != c) {
       //rotate 90 clockwise
@@ -274,16 +286,30 @@ void ScreenImpl::eraseFullLine() {
   }
 }
 
-void ScreenImpl::shapFollowPointMovement(Vec2 oldPoint, Vec2 curPoint) {
-  int i = (curPoint.x - oldPoint.x)/blockSize_.width;
-  int n = abs(i);
-  for(int j = 0; j < n; ++j) {
-    if(i < 0) {
-      moveShapLeft();
+void ScreenImpl::shapFollowPointMovement(Vec2 oldPoint, Vec2 curPoint, Vec2 shapCentorPointOnTouchBegin) {
+  Vec2 shapCentorOld = shapCentorPointOnTouchBegin;
+  int targetX = shapCentorOld.x + curPoint.x - oldPoint.x;
+  Vec2 shapCentorNew = shapCentorOld;
+  while(!(shapCentorNew.x <= targetX + blockSize_.width/2 
+        && shapCentorNew.x >= targetX - blockSize_.width/2)) {
+    if(shapCentorNew.x < targetX) {
+      if(!moveShapRight()) 
+        return;
     } else {
-      moveShapRight();
+      if(!moveShapLeft())
+        return;
     }
+    shapCentorNew = getBlock(curShap_->centor_.x, curShap_->centor_.y)->getPosition();
   }
+//  int i = (curPoint.x - oldPoint.x)/blockSize_.width;
+//  int n = abs(i);
+//  for(int j = 0; j < n; ++j) {
+//    if(i < 0) {
+//      moveShapLeft();
+//    } else {
+//      moveShapRight();
+//    }
+//  }
 }
 
 void Runner::rotate() {
@@ -354,6 +380,18 @@ void Player::play(Scene* scene, ScreenImpl* screenArr) {
   //unschedule(schedule_selector(Runner::run))
 }
 
+void Player::rescheduleTimer(Scene* scene, bool isUp) {
+  //scene->unschedule(schedule_selector(Runner::runClkForScheduler));
+  if(!isUp) {
+    timerT_ += 0.04;  
+  } else if(timerT_ > 0.05 ) {
+    timerT_ -= 0.04;
+  }
+  if(getRunner()) {
+    scene->schedule(schedule_selector(Runner::runClkForScheduler), timerT_);
+  }
+}
+
 Scene* Player::createStartScene() {
   auto scene = Scene::create();
   //prepare size and orig.
@@ -406,24 +444,37 @@ Scene* Player::createStartScene() {
   auto menuNode = Node::create();
   auto exitMenuItem = MenuItemFont::create("Exit");
   auto startMenuItem = MenuItemFont::create("Start");
+  auto speedUpItem = MenuItemFont::create("SpeedUp");
+  auto speedDownItem = MenuItemFont::create("SpeedDown");
+  speedDownItem->setCallback([scene](Ref *pSender){
+      Player::getInstance().rescheduleTimer(scene, false);
+      });
+  speedUpItem->setCallback([scene](Ref *pSender){
+      Player::getInstance().rescheduleTimer(scene, true);
+      });
+  speedUpItem->setFontNameObj("Marker Felt.ttf");
+  speedDownItem->setFontNameObj("Marker Felt.ttf");
   exitMenuItem->setFontNameObj("Marker Felt.ttf");
   startMenuItem->setFontNameObj("Marker Felt.ttf");
   startMenuItem->setFontSizeObj(32);
+  speedUpItem->setFontSizeObj(32);
+  speedDownItem->setFontSizeObj(32);
   exitMenuItem->setFontSizeObj(32);
   exitMenuItem->setCallback([&](Ref *pSender) {
       Director::getInstance()->end();
       });
   startMenuItem->setCallback([this, scene, screenArr](Ref *pSender) {
       this->play(scene, screenArr);
-      //Player* player = Player::getInstance();
-      //sence->addChild(player);
       });
-  auto menu = Menu::create(exitMenuItem, startMenuItem, NULL);
+  auto menu = Menu::create(exitMenuItem, startMenuItem, speedUpItem, speedDownItem, NULL);
   menu->setAnchorPoint(Vec2(0,0));
   menu->setPosition(gameMenuOrig.x , 
                     gameMenuOrig.y);
   startMenuItem->setPosition(gameMenuSize.width/2, exitMenuItem->getContentSize().height/2);
   exitMenuItem->setPosition(gameMenuSize.width/2, exitMenuItem->getContentSize().height*3);
+  speedUpItem->setPosition(gameMenuSize.width/2, exitMenuItem->getContentSize().height*7); 
+  speedDownItem->setPosition(gameMenuSize.width/2, exitMenuItem->getContentSize().height*5); 
+  
   menuNode->addChild(menu, 0);
   scene->addChild(menuNode, -4);
   // MessageBox("Hell","WW");

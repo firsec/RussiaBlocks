@@ -24,13 +24,14 @@ class ScreenBlock: public Sprite {
 class ScreenImpl: public ScreenBlock {
   public:
     enum {
-      TSHAP = 0,
-      LSHAPL = 1,
-      LSHAPR = 2,
-      ZSHAPL = 3,
-      ZSHAPR = 4,
-      ISHAP = 5,
-      SHAPNR = 6,
+      TSHAP,
+      LSHAPL,
+      LSHAPR,
+      ZSHAPL,
+      ZSHAPR,
+      ISHAP,
+      OSHAP,
+      SHAPNR,
     };
     enum {
       CENTOR = 0,
@@ -78,13 +79,17 @@ class ScreenImpl: public ScreenBlock {
     }
     void eraseFullLine();
     void genShap();
-    void moveShapRight();
-    void moveShapLeft();
+    bool moveShapRight();
+    bool moveShapLeft();
     void rotateShap();
     // return true means drop onestep successfully
     // false means shap connected to the top of other shap and added to the DropedBlocksArr_
     bool dropShap(bool isToBottom); 
-    void shapFollowPointMovement(Vec2 oldPoint, Vec2 curPoint);
+    void shapFollowPointMovement(Vec2 oldPoint, Vec2 curPoint , Vec2 shapCentorPointOnTouchBegin);
+    Vec2 getShapCentorPoint() {
+      return getBlock(curShap_->centor_.x, curShap_->centor_.y)->getPosition();
+    }
+
   protected:
     ScreenImpl(Point &playOrig, Size &playSize, int width=18, int height=27):
       playOrig_(playOrig), playSize_(playSize), width_(width), height_(height) {
@@ -175,11 +180,14 @@ class Runner: public Ref {
       screenArr_->moveLR2Point(point);
     }
     //only move left or right by touch screen, set it and endtouch clear it.
-    bool processMoved(Vec2 oldPoint, Touch *t) {
+    bool processMoved(Vec2 oldPoint, Touch *t, Vec2 shapCentorPointOnTouchBegin) {
+      if(state_ != DROPPING) 
+        return false;
       Vec2 delta = t->getDelta();
       Vec2 curPoint = t->getLocation();
       if(curPoint.y - oldPoint.y < -30 && abs(curPoint.x - oldPoint.x) < 30) {
-        if(!isLockDrop_ && state_ == DROPPING && !screenArr_->dropShap(true)) {
+        //directly drop to bottom.
+        if(!isLockDrop_ && !screenArr_->dropShap(true)) {
         //erasefullline and  set state_ to genshap and .
           screenArr_->eraseFullLine();
           state_ = TOGENSHAP;
@@ -189,7 +197,7 @@ class Runner: public Ref {
       } else if(abs(delta.y) < 30) {
         //follow right or left.
         if(screenArr_) { 
-          screenArr_->shapFollowPointMovement(oldPoint, t->getLocation());
+          screenArr_->shapFollowPointMovement(oldPoint, t->getLocation(), shapCentorPointOnTouchBegin);
         }
         return false;
       }
@@ -203,6 +211,9 @@ class Runner: public Ref {
     }
     void clearMoveEventTags() {
       isLockDrop_ = false;
+    }
+    Vec2 getShapCentorPoint() {
+      return screenArr_->getShapCentorPoint();
     }
   protected:
     bool init() { return true;}
@@ -231,11 +242,16 @@ class Player {
     Runner* getRunner() const { return runner_; };
     bool processOnTouchMoved(Touch *t) { 
       if(runner_) {
-        return runner_-> processMoved(pointOnTouchBegin_, t);
+        return runner_-> processMoved(pointOnTouchBegin_, t, shapCentorPointOnTouchBegin_);
       }
       return false;
     }
-    void saveOnTouchBeginPoint(Vec2 point) { pointOnTouchBegin_ = point; }
+    void saveOnTouchBeginPoint(Vec2 point) { 
+      pointOnTouchBegin_ = point; 
+      if(runner_) {
+        shapCentorPointOnTouchBegin_ = runner_->getShapCentorPoint(); 
+      } 
+    }
     void processOnTouchEnd(Vec2 endPoint) {
       if(runner_) {
         runner_->checkRotateTouchEvent(pointOnTouchBegin_, endPoint);
@@ -245,11 +261,13 @@ class Player {
     void followPoint(Vec2 point) {
       if(runner_) runner_->shapFollowPoint(point);
     } 
+    void rescheduleTimer(Scene* scene, bool isUp);
   private:
-    Player():runner_(nullptr) {}
+    Player():runner_(nullptr), timerT_(0.5){}
     Player(Player &Player) {}
     bool operator =(Player &Player) { return true; }
     Runner *runner_;
     Vec2 pointOnTouchBegin_; 
-
-};
+    Vec2 shapCentorPointOnTouchBegin_;
+    float timerT_;
+}; //Player
