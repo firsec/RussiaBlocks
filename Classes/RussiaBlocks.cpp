@@ -185,10 +185,10 @@ void ScreenImpl::genShap() {
     curShap_->centor_ = curShap_->blocks_[0];
   } else if(shap == ISHAP) { // 5
     curShap_->blocks_[0] = midTopPos;
-    curShap_->blocks_[1] = Vec2(midTopPos.x + 1, midTopPos.y);
-    curShap_->blocks_[2] = Vec2(midTopPos.x - 1, midTopPos.y);
-    curShap_->blocks_[3] = Vec2(midTopPos.x - 2, midTopPos.y);
-    curShap_->centor_ = curShap_->blocks_[0];
+    curShap_->blocks_[1] = Vec2(midTopPos.x, midTopPos.y - 1);
+    curShap_->blocks_[2] = Vec2(midTopPos.x, midTopPos.y - 2);
+    curShap_->blocks_[3] = Vec2(midTopPos.x, midTopPos.y - 3);
+    curShap_->centor_ = curShap_->blocks_[1];
   } else if(shap == OSHAP) {
     curShap_->blocks_[0] = midTopPos;
     curShap_->blocks_[1] = Vec2(midTopPos.x + 1, midTopPos.y);
@@ -375,7 +375,7 @@ void Player::play(Scene* scene, ScreenImpl* screenArr) {
   //in call back func. If you want to visit data. need to reget instance.
   //May be because of static_cast of the callBack function to Ref:: so it can't visit data??.
   //also can't use lamada because the type is not std::function??
-  scene->schedule(schedule_selector(Runner::runClkForScheduler), 0.2f);
+  scene->schedule(schedule_selector(Runner::runClkForScheduler), 0.5f);
   //to unschedule it.
   //unschedule(schedule_selector(Runner::run))
 }
@@ -393,14 +393,21 @@ void Player::rescheduleTimer(Scene* scene, bool isUp) {
 }
 
 Scene* Player::createStartScene() {
+  //create a scene.
   auto scene = Scene::create();
-  //prepare size and orig.
-  Size visibleSize = Director::getInstance()->getVisibleSize();
+
+  //get available size.
+  Size visiableSize = Director::getInstance()->getVisibleSize();
   Vec2 origin = Director::getInstance()->getVisibleOrigin();
-  Vec2 playOrig(origin.x, origin.y + visibleSize.height*0.2);
-  Size playSize(visibleSize.width*0.8, visibleSize.height*0.8);
-  auto colorPlayAreaBody = Color3B(200,200,255);
-  auto colorPlayAreaOutLine = Color3B(255,50,50);
+  
+  //create back ground layer and add to scene.
+  auto backGroundLayer = LayerColor::create(Color4B(BACKGROUND_COLOR), visiableSize.width, visiableSize.height );
+  scene->addChild(backGroundLayer, -10);
+  
+  Vec2 playOrig(origin.x, origin.y + visiableSize.height*0.2);
+  Size playSize(visiableSize.width*0.8, visiableSize.height*0.8);
+  auto colorPlayAreaBody = Color3B(0xB6, 0xBB, 0xE5);
+  auto colorPlayAreaOutLine = Color3B(0x7F, 0x88, 0xCC);
   Vec2 stripePlayArea[4] = {
     Vec2(playOrig.x, playOrig.y),
     Vec2(playOrig.x, playOrig.y + playSize.height),
@@ -439,24 +446,30 @@ Scene* Player::createStartScene() {
   //create control pannel
   Vec2 playControlOrig(origin);
   Vec2 gameMenuOrig(playOrig.x + playSize.width, playOrig.y);
-  Size gameMenuSize(visibleSize.width - playSize.width, playSize.height);
+  Size gameMenuSize(visiableSize.width - playSize.width, playSize.height);
 
   auto menuNode = Node::create();
-  auto exitMenuItem = MenuItemFont::create("Exit");
-  auto startMenuItem = MenuItemFont::create("Start");
+  auto exitMenuItem = MenuItemFont::create("EXIT");
+  auto startMenuItem = MenuItemFont::create("START");
   auto speedUpItem = MenuItemFont::create("SpeedUp");
-  auto speedDownItem = MenuItemFont::create("SpeedDown");
+  auto speedDownItem = MenuItemFont::create("SpdDown");
   speedDownItem->setCallback([scene](Ref *pSender){
       Player::getInstance().rescheduleTimer(scene, false);
       });
   speedUpItem->setCallback([scene](Ref *pSender){
       Player::getInstance().rescheduleTimer(scene, true);
       });
-  speedUpItem->setFontNameObj("Marker Felt.ttf");
-  speedDownItem->setFontNameObj("Marker Felt.ttf");
-  exitMenuItem->setFontNameObj("Marker Felt.ttf");
-  startMenuItem->setFontNameObj("Marker Felt.ttf");
+  speedUpItem->setFontNameObj(MENU_ITEM_FONT);
+  speedDownItem->setFontNameObj(MENU_ITEM_FONT);
+  exitMenuItem->setFontNameObj(MENU_ITEM_FONT);
+  startMenuItem->setFontNameObj(MENU_ITEM_FONT);
   startMenuItem->setFontSizeObj(32);
+  
+  startMenuItem->setColor(CONTROL_FONT_COLOR);
+  exitMenuItem->setColor(CONTROL_FONT_COLOR);
+  speedUpItem->setColor(CONTROL_FONT_COLOR);
+  speedDownItem->setColor(CONTROL_FONT_COLOR);
+ 
   speedUpItem->setFontSizeObj(32);
   speedDownItem->setFontSizeObj(32);
   exitMenuItem->setFontSizeObj(32);
@@ -471,9 +484,9 @@ Scene* Player::createStartScene() {
   menu->setPosition(gameMenuOrig.x , 
                     gameMenuOrig.y);
   startMenuItem->setPosition(gameMenuSize.width/2, exitMenuItem->getContentSize().height/2);
-  exitMenuItem->setPosition(gameMenuSize.width/2, exitMenuItem->getContentSize().height*3);
-  speedUpItem->setPosition(gameMenuSize.width/2, exitMenuItem->getContentSize().height*7); 
-  speedDownItem->setPosition(gameMenuSize.width/2, exitMenuItem->getContentSize().height*5); 
+  exitMenuItem->setPosition(gameMenuSize.width/2, exitMenuItem->getContentSize().height/2*3);
+  speedUpItem->setPosition(gameMenuSize.width/2, exitMenuItem->getContentSize().height/2*5); 
+  speedDownItem->setPosition(gameMenuSize.width/2, exitMenuItem->getContentSize().height/2*7); 
   
   menuNode->addChild(menu, 0);
   scene->addChild(menuNode, -4);

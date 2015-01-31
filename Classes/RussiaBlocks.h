@@ -17,10 +17,13 @@ class ScreenBlock: public Sprite {
   protected:
 };
 
-
-
-#define DEFAULT_BLOCK_COLOR Color3B(0xBF,0x8A,0x30)
-#define SELECTED_BLOCK_COLOR Color3B::BLACK
+#define MENU_ITEM_FONT "Umpush-Bold.ttf"
+#define CONTROL_FONT_COLOR Color3B(0xFF, 0xFF, 0xFF)
+//#define CONTROL_FONT_COLOR Color3B(0x29, 0x34, 0x85)
+#define BACKGROUND_COLOR Color3B(0xDF, 0xBD, 0x71)
+#define DEFAULT_BLOCK_COLOR Color3B(0xEF,0xE3,0x97)
+//#define SELECTED_BLOCK_COLOR Color3B(0x29, 0x34, 0x85)
+#define SELECTED_BLOCK_COLOR Color3B(0xA7, 0x94, 0x69)
 class ScreenImpl: public ScreenBlock {
   public:
     enum {
@@ -187,7 +190,7 @@ class Runner: public Ref {
         return false;
       Vec2 delta = t->getDelta();
       Vec2 curPoint = t->getLocation();
-      if(curPoint.y - oldPoint.y < -30 && abs(curPoint.x - oldPoint.x) < 30) {
+      if(curPoint.y - oldPoint.y < -30 && abs((curPoint.x - oldPoint.x)/(curPoint.y - oldPoint.y)) < 0.5) {
         //directly drop to bottom.
         if(!isLockDrop_ && !screenArr_->dropShap(true)) {
         //erasefullline and  set state_ to genshap and .
@@ -196,7 +199,7 @@ class Runner: public Ref {
           isLockDrop_ = true;//set to false when touch end.
         }
         return true;
-      } else if(abs(delta.y) < 30) {
+      } else if(abs(delta.y/delta.x) < 0.5) {
         //follow right or left.
         if(screenArr_) { 
           screenArr_->shapFollowPointMovement(oldPoint, t->getLocation());
