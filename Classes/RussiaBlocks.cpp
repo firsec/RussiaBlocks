@@ -2,13 +2,13 @@
 USING_NS_CC;
 
 void ScreenImpl::colorBlock(Vec2 &pos, Color3B color) {
-  log("%g %g", pos.x, pos.y);
+  //log("%g %g", pos.x, pos.y);
   auto block = getBlock(pos.x, pos.y);
   block->setColor(color);
 }
 
 void ScreenImpl::colorBlock(Vec2 &&pos, Color3B color) {
-  log("---%g %g", pos.x, pos.y);
+  //log("---%g %g", pos.x, pos.y);
   auto block = getBlock(pos.x, pos.y);
   block->setColor(color);
 }
@@ -84,7 +84,7 @@ bool ScreenImpl::dropShap(bool isToBottom) {
       }
     } while(1); 
   } else {
-    log("dropShap");
+    //log("dropShap");
     //check stuck
     if(isStuck(BOTTOM)) {
       //fix curBlocks
@@ -114,10 +114,10 @@ bool ScreenImpl::dropShap(bool isToBottom) {
 }
 
 bool ScreenImpl::moveShapRight() {
-  log("moveShapRight");
   auto p = curShap_->blocks_;
   //checkStuck()
   if(!isStuck(RIGHT)) {
+    log("moveShapRight");
     curShap_->centor_.x += 1;
     for(int i = 3; i >= 0; --i) {
       colorBlock(Vec2(p[i].x+1, p[i].y));
@@ -130,10 +130,10 @@ bool ScreenImpl::moveShapRight() {
 }
 
 bool ScreenImpl::moveShapLeft() {
-  log("moveSLeft");
   auto p = curShap_->blocks_;
   //checkStuck()
   if(!isStuck(LEFT)) {
+    log("moveSLeft");
     curShap_->centor_.x -= 1;
     for(int i = 0; i < 4; ++i) {
       colorBlock(Vec2(p[i].x-1, p[i].y));
@@ -252,7 +252,7 @@ void ScreenImpl::rotateShap() {
     }
   }
   for(auto &i : curShap_->blocks_) {
-    log("x %g y %g", i.x, i.y);
+    //log("x %g y %g", i.x, i.y);
     getBlock(i.x, i.y)->setColor(SELECTED_BLOCK_COLOR);
   }
   std::sort(curShap_->blocks_, curShap_->blocks_ + 4);
@@ -286,10 +286,12 @@ void ScreenImpl::eraseFullLine() {
   }
 }
 
-void ScreenImpl::shapFollowPointMovement(Vec2 oldPoint, Vec2 curPoint, Vec2 shapCentorPointOnTouchBegin) {
-  Vec2 shapCentorOld = shapCentorPointOnTouchBegin;
-  int targetX = shapCentorOld.x + curPoint.x - oldPoint.x;
-  Vec2 shapCentorNew = shapCentorOld;
+void ScreenImpl::shapFollowPointMovement(Vec2 oldPoint, Vec2 curPoint) {
+  Vec2 shapCentorOld = shapCentorPointOnTouchBegin_;
+  double targetX = shapCentorOld.x + curPoint.x - oldPoint.x;
+  log("old %g %g, cur %g %g, shapCentorOld %g %g, targetX %g", oldPoint.x, oldPoint.y, curPoint.x, curPoint.y,
+      shapCentorOld.x, shapCentorOld.y, targetX);
+  Vec2 shapCentorNew = getBlock(curShap_->centor_.x, curShap_->centor_.y)->getPosition();
   while(!(shapCentorNew.x <= targetX + blockSize_.width/2 
         && shapCentorNew.x >= targetX - blockSize_.width/2)) {
     if(shapCentorNew.x < targetX) {
@@ -316,17 +318,14 @@ void Runner::rotate() {
   if(state_ == DROPPING) {
     screenArr_->rotateShap();
   }
-  log("rotate");
 }
 
 void Runner::moveLeft() {
   if(state_ == DROPPING) {
     screenArr_->moveShapLeft();
   }
-  log("move left");
 }
 void Runner::moveRight() {
-  log("move right");
   if(state_ == DROPPING) {
     screenArr_->moveShapRight();
   }
@@ -347,13 +346,14 @@ void Runner::genShap() {
 //need to lock before modify color of block in shift left, right and dropToBottom func.
 //need a class to save shape??
 void Runner::run() { 
-  log("run");
+  log("start to run");
   if(state_ == DROPPING) {
-    log("state dropping.");
+    //log("state dropping.");
     drop();
   } else if(state_ == TOGENSHAP) {
     log("state to gen shap.");
     genShap();
+    refreshScreenArrShapCentorPointForTouch();
     state_ = DROPPING;
   } else if(state_ == TOSTART) {
     log("state to start.");

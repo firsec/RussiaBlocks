@@ -85,9 +85,10 @@ class ScreenImpl: public ScreenBlock {
     // return true means drop onestep successfully
     // false means shap connected to the top of other shap and added to the DropedBlocksArr_
     bool dropShap(bool isToBottom); 
-    void shapFollowPointMovement(Vec2 oldPoint, Vec2 curPoint , Vec2 shapCentorPointOnTouchBegin);
-    Vec2 getShapCentorPoint() {
-      return getBlock(curShap_->centor_.x, curShap_->centor_.y)->getPosition();
+    void shapFollowPointMovement(Vec2 oldPoint, Vec2 curPoint);
+    void refreshCentorPointForTouch() {
+      shapCentorPointOnTouchBegin_ = 
+        getBlock(curShap_->centor_.x, curShap_->centor_.y)->getPosition();
     }
 
   protected:
@@ -138,6 +139,7 @@ class ScreenImpl: public ScreenBlock {
     std::vector<ScreenBlock*> blockArr_;
     Shap* curShap_;//contain current shap and next shap.
     Shap* nextShap_;
+    Vec2 shapCentorPointOnTouchBegin_;
 
 }; //class ScreenImpl
 
@@ -180,7 +182,7 @@ class Runner: public Ref {
       screenArr_->moveLR2Point(point);
     }
     //only move left or right by touch screen, set it and endtouch clear it.
-    bool processMoved(Vec2 oldPoint, Touch *t, Vec2 shapCentorPointOnTouchBegin) {
+    bool processMoved(Vec2 oldPoint, Touch *t) {
       if(state_ != DROPPING) 
         return false;
       Vec2 delta = t->getDelta();
@@ -197,7 +199,7 @@ class Runner: public Ref {
       } else if(abs(delta.y) < 30) {
         //follow right or left.
         if(screenArr_) { 
-          screenArr_->shapFollowPointMovement(oldPoint, t->getLocation(), shapCentorPointOnTouchBegin);
+          screenArr_->shapFollowPointMovement(oldPoint, t->getLocation());
         }
         return false;
       }
@@ -212,8 +214,8 @@ class Runner: public Ref {
     void clearMoveEventTags() {
       isLockDrop_ = false;
     }
-    Vec2 getShapCentorPoint() {
-      return screenArr_->getShapCentorPoint();
+    void refreshScreenArrShapCentorPointForTouch() {
+      screenArr_->refreshCentorPointForTouch();
     }
   protected:
     bool init() { return true;}
@@ -242,14 +244,14 @@ class Player {
     Runner* getRunner() const { return runner_; };
     bool processOnTouchMoved(Touch *t) { 
       if(runner_) {
-        return runner_-> processMoved(pointOnTouchBegin_, t, shapCentorPointOnTouchBegin_);
+        return runner_-> processMoved(pointOnTouchBegin_, t);
       }
       return false;
     }
     void saveOnTouchBeginPoint(Vec2 point) { 
       pointOnTouchBegin_ = point; 
       if(runner_) {
-        shapCentorPointOnTouchBegin_ = runner_->getShapCentorPoint(); 
+        runner_->refreshScreenArrShapCentorPointForTouch();
       } 
     }
     void processOnTouchEnd(Vec2 endPoint) {
@@ -268,6 +270,5 @@ class Player {
     bool operator =(Player &Player) { return true; }
     Runner *runner_;
     Vec2 pointOnTouchBegin_; 
-    Vec2 shapCentorPointOnTouchBegin_;
     float timerT_;
 }; //Player
